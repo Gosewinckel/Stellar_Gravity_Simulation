@@ -11,7 +11,7 @@ render_f = ti.Vector.field(3, ti.f32, shape=conf.n)
 @ti.kernel
 def update_render_data():
     for i in range(conf.n):
-        render_pos[i] = Stars[i].pos
+        render_pos[i] = (Stars[i].pos/conf.height)*2
         render_v[i] = Stars[i].v
         render_f[i] = Stars[i].f
 
