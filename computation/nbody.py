@@ -5,8 +5,6 @@ from computation import Star
 
 n = conf.n
 
-ti.init(arch=ti.cpu)
-
 Stars = Star.Star.field(shape = n)
 Forces = ti.Vector.field(3, dtype=float, shape=(n, n))
 
@@ -38,7 +36,6 @@ def gravity_step():
     for i in ti.grouped(Stars):
         Stars[i].v += (Stars[i].f/Stars[i].m)*conf.dt
         Stars[i].pos += Stars[i].v*conf.dt
-        print(Stars[i].pos)
 
 @ti.func
 def F_grav(m1, m2, r, u):
