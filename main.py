@@ -3,13 +3,26 @@ ti.init(arch=ti.gpu)
 
 import taichi.math as tm
 from computation import Star, nbody
-from computation.nbody import Stars, rand_initialise_masses, gravity_step
+from computation.nbody import Stars, rand_initialise_masses, orbit_initialise_masses, gravity_step
 from rendering import GGUI
 import config as conf
 import time
 
 
 def main():
+
+    #get user input
+    check = True
+    while check == True:
+        num = input("Number of stars to simulate: ")
+        try:
+            num = int(num);
+            check = False
+        except:
+            print("pick a valid integer")
+
+    conf.n = num
+
     window = ti.ui.Window("test", (conf.x, conf.y))
     canvas = window.get_canvas()
     scene = ti.ui.Scene()
@@ -32,7 +45,6 @@ def main():
     while window.running:
         frame_start = time.time()
         camera.track_user_inputs(window, movement_speed=0.03, hold_key=ti.ui.LMB)
-        #GGUI.draw_box(scene)
         GGUI.update_render_data()
         gravity_step()
 
