@@ -9,7 +9,6 @@ n = conf.n
 Stars = Star.Star.field(shape = n)
 F_p = ti.Vector.field(3, dtype=float, shape=n)
 F_n = ti.Vector.field(3, dtype=float, shape=n)
-Forces = ti.Vector.field(3, dtype=float, shape=(n, n))
 
 
 def rand_initialise_masses():
@@ -29,14 +28,15 @@ def rand_initialise_masses():
         v = gen.integers(low=-1000000, high=1000001, size=3)
         u = v/tm.sqrt(v[0]**2 + v[1]**2 + v[2]**2)
         Stars[i].v = v_mag*u
+        Stars[i].alive = 1
 
 #calculate change in conditions
 @ti.kernel
 def gravity_step():
-
+    r_s = (2 * conf.G * Stars[0].m)/conf.C**2 
     #update positions with forces from prev step
     for i in range(n):
-        Stars[i].pos += Stars[i].v + (Stars[i].f/Stars[i].m)*((conf.dt**2)*0.5)
+        Stars[i].pos += Stars[i].v*conf.dt[None] + (Stars[i].f/Stars[i].m)*((conf.dt[None]**2)*0.5)
         
     for i in Stars:
         force = ti.Vector([0.0,0.0,0.0])
@@ -54,7 +54,7 @@ def gravity_step():
 
         #calculate new velocity
         Stars[i].f = force
-        Stars[i].v += (Stars[i].f + F_p[i])/Stars[i].m * (conf.dt*0.5)
+        Stars[i].v += ((Stars[i].f + F_p[i])/Stars[i].m) * (conf.dt[None]*0.5)
         F_p[i] = Stars[i].f
         
 
