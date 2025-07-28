@@ -28,7 +28,6 @@ def rand_initialise_masses():
         v = gen.integers(low=-1000000, high=1000001, size=3)
         u = v/tm.sqrt(v[0]**2 + v[1]**2 + v[2]**2)
         Stars[i].v = v_mag*u
-        Stars[i].alive = 1
 
 #calculate change in conditions
 @ti.kernel
