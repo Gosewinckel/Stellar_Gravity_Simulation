@@ -9,7 +9,7 @@ Gi = 6.67e-11            #Newtons gravitational constant
 G = (Gi*Mo*Ty**2)/Au**3
 C = (3e8 * Ty)/Au
 
-n = 1000                 #number of solar objects - 1 (the first object is a black hole)
+n = 1000000                 #number of solar objects - 1 (the first object is a black hole)
 
 dt = ti.field(dtype=ti.f32, shape=())
 dt[None] = 1            #incriments  of time for Verlet integration

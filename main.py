@@ -3,7 +3,7 @@ ti.init(arch=ti.gpu)
 
 import taichi.math as tm
 from computation import Star, nbody
-from computation.nbody import Stars, rand_initialise_masses, orbit_initialise_masses, gravity_step
+from computation.nbody import Stars, rand_initialise_masses, orbit_initialise_masses, gravity_step, create_fields
 from rendering import GGUI
 import config as conf
 import time
@@ -23,17 +23,18 @@ def main():
 
     conf.n = num
 
+    Star, F_p = create_fields()
     window = ti.ui.Window("test", (conf.x, conf.y))
     canvas = window.get_canvas()
     scene = ti.ui.Scene()
     camera = ti.ui.Camera()
     
-    camera.position(1.5,1.5,-1.5)
+    camera.position(1,1,-0)
     move_speed = 0.05
     cam_pos=ti.Vector([5,2,2])
     can_look=ti.Vector([0.0,0.0,0.0])
 
-    rand_initialise_masses()
+    orbit_initialise_masses()
 
     TARGET_FPS = 60
     FRAME_DURATION = 1/TARGET_FPS
@@ -48,14 +49,17 @@ def main():
         GGUI.update_render_data()
         gravity_step()
 
+        #controls window
         with window.GUI.sub_window("Controls", 0.85, 0.01, 0.1, 0.1):
             window.GUI.text("exit: q")
             window.GUI.text("movement: wasd")
             window.GUI.text("camera: left mouse button")
 
+        #quit command
         if window.is_pressed("q"):
             window.running = False
 
+        #dt window
         with window.GUI.sub_window(f"dt = {conf.dt}", 0.85, 0.12, 0.06, 0.06):
             if window.GUI.button("-"):
                 conf.dt[None] -= 0.1
@@ -67,8 +71,8 @@ def main():
         temp_pos[0] = GGUI.render_pos[0]
 
         ##draw particles
-        scene.particles(GGUI.render_pos, color=(10,10,10), radius=0.001)
-        scene.particles(temp_pos, color=(5, 0, 10), radius=0.005)
+        scene.particles(GGUI.render_pos, color=(10,10,10), radius=0.0002)
+        scene.particles(temp_pos, color=(5, 0, 10), radius=0.001)
 
         #GGUI.draw_Force_Vectors(scene)
         canvas.scene(scene)

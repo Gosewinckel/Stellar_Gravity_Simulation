@@ -4,20 +4,27 @@ import config as conf
 from computation import Star
 import numpy as np
 
-n = conf.n
 
-Stars = Star.Star.field(shape = n)
-F_p = ti.Vector.field(3, dtype=float, shape=n)
-F_n = ti.Vector.field(3, dtype=float, shape=n)
+conf.n
+
+Stars = Star.Star.field(shape=conf.n)    #holds all star structs
+F_p = ti.Vector.field(3, dtype = float, shape=conf.n)      #holds previous force vectors
+#F_n = ti.Vector.field()
 B_max = ti.u64
 B_max = 1*10**11
 B_min = ti.u64
 B_min = 1*10**7
 
+#create fields for stars and force vectors
+def create_fields():
+    Stars = Star.Star.field(shape=conf.n)
+    F_p = ti.Vector.field(3, dtype=float, shape=conf.n)
+    return Stars, F_p
 
+#Initialise stars with random values
 def rand_initialise_masses():
     gen = np.random.default_rng()
-    for i in range(n):
+    for i in range(conf.n):
         if i == 0:
             mass = gen.integers(low=1*10**7, high=1*10**11, size=1)
             Stars[i].m = mass[0]
@@ -33,44 +40,81 @@ def rand_initialise_masses():
         u = v/tm.sqrt(v[0]**2 + v[1]**2 + v[2]**2)
         Stars[i].v = v_mag*u
 
+#Initialise stars with orbital trajectories
 @ti.kernel
 def orbit_initialise_masses():
-    for i in Stars:
+    #generate black hole
+    m = ti.random(dtype=float)
+    Stars[0].m = ti.u64(9*10**10) * m + ti.u64(1*10**7)
+    Stars[0].pos = [conf.width/2, conf.height/2, conf.depth/2]
+    Stars[0].v = [0.0, 0.0, 0.0]
 
-        #generate black hole
-        if i == 0:
-            m = ti.random(dtype=float)
-            Stars[i].m = ti.u64(9*10**10) * m + ti.u64(1*10**7)
-            Stars[i].pos = [conf.width/2, conf.height/2, conf.depth/2]
-            Stars[i].v = [0,0,0]
-            continue
-        
-        #generate vector
-        x = (206265 - 2000) * ti.random(dtype=float) + 2000 + conf.width/2
-        y = (206265 - 2000) * ti.random(dtype=float) + 2000 + conf.height/2
-        z = (206265 - 2000) * ti.random(dtype=float) + 2000 + conf.depth/2
-        Stars[i].pos = [x,y,z]
-        for j in range(3):
-            rand = ti.random(ti.i32)
-            if rand % 2 == 0:
-                continue
-            else:
-                Stars[i].pos[j] -= conf.width/2
 
-        #find appropriate velocity for closeness to black hole
-        dist = ti.sqrt((Stars[i].pos[0] - Stars[0].pos[0])**2 + (Stars[i].pos[1] - Stars[0].pos[1])**2 + (Stars[i].pos[2] - Stars[0].pos[2])**2)
-        v_total = 35.04*2.71**(dist - 2000/0.0127778)
-        v_vec1 = ti.random(dtype=float)
-        v_vec2 = ti.random(dtype=float)
-        v_vec3 = ti.random(dtype=float)
-      
-        v_norm = ti.sqrt(v_vec1**2 + v_vec2**2 + v_vec3**2)
+    r_s = (2 * conf.G * Stars[0].m)/conf.C**2 
+    #generate stars
+    for i in range(1, conf.n):
+        #initialise positions
+        pos_x = (ti.random(dtype=float))
+        pos_y = (ti.random(dtype=float))
+        pos_z = (ti.random(dtype=float))
 
-        v_vec1 /= v_norm
-        v_vec2 /= v_norm
-        v_vec3 /= v_norm
-        Stars[i].v = [v_vec1, v_vec2, v_vec3] * v_total
-        Stars[i].m = 1
+        u = tm.sqrt(pos_x**2 + pos_y**2 + pos_z**2)
+        pos_x /= u
+        pos_y /= u
+        pos_z /= u
+
+        mag = ti.random(dtype=float) * ti.random(dtype=float) * conf.width/2 + r_s*30
+        pos_x *= mag
+        pos_y *= mag
+        pos_z *= mag
+
+        if ti.random(dtype=ti.i32) < 0:
+            pos_x *= -1
+        if ti.random(dtype=ti.i32) < 0:
+            pos_y *= -1
+        if ti.random(dtype=ti.i32) < 0:
+            pos_z *= -1
+
+        #final position
+        Stars[i].pos = [pos_x + conf.width/2, pos_y + conf.height/2, pos_z + conf.depth/2]
+
+        #initialise masses
+        Stars[i].m = conf.M_max * ti.random(dtype=float) + conf.M_min
+
+        #initialise trajectory
+        #generate a random orthoganoal vector by finding the determinant of the force vector and a random vector
+        F_v = Stars[0].pos - Stars[i].pos
+        r_v = [ti.random(dtype=float), ti.random(dtype=float), ti.random(dtype=float)]
+        #find determinant
+        R_v = [(F_v[1]*r_v[2]) - (F_v[2]*r_v[1]), (F_v[0]*r_v[2]) - (F_v[2]*r_v[0]), (F_v[0]*r_v[1]) - (F_v[1]*r_v[0])]
+        #normalise for unit vector
+        R_norm = tm.sqrt(R_v[0]**2 + R_v[1]**2 + R_v[2]**2)
+        R_v[0] /= R_norm
+        R_v[1] /= R_norm
+        R_v[2] /= R_norm
+
+        #make trajectory more random the closer to the black hole the star is
+        rand_scalar = 1/tm.sqrt(F_v[0]**2 + F_v[1]**2 + F_v[2]**2)
+        rand_vector = [1.0, 1.0, 1.0]
+        rand_vector[0] *= rand_scalar
+        rand_vector[1] *= rand_scalar
+        rand_vector[2] *= rand_scalar
+        if ti.random(dtype=ti.i32) < 0:
+            rand_vector[0] *= -1
+        if ti.random(dtype=ti.i32) < 0:
+            rand_vector[1] *= -1
+        if ti.random(dtype=ti.i32) < 0:
+            rand_vector[2] *= -1
+        R_v[0] += rand_vector[0]
+        R_v[1] += rand_vector[1]
+        R_v[2] += rand_vector[2]
+
+        Stars[i].v = R_v
+
+        #set velocity to a stable orbit
+        R_mag = ti.sqrt(F_v[0]**2 + F_v[1]**2 + F_v[2]**2)
+        V_o = ti.sqrt((conf.G*Stars[0].m)/R_mag)
+        Stars[i].v *= V_o
 
 
 
@@ -79,14 +123,17 @@ def orbit_initialise_masses():
 def gravity_step():
     r_s = (2 * conf.G * Stars[0].m)/conf.C**2 
     #update positions with forces from prev step
-    for i in range(n):
+    for i in range(conf.n):
         if Stars[i].m == 0:
             continue
         Stars[i].pos += Stars[i].v*conf.dt[None] + (Stars[i].f/Stars[i].m)*((conf.dt[None]**2)*0.5)
         if i == 0:
             continue
+
+        #stars get destroyed by tidal forces within 20x event horizon
         r = tm.sqrt((Stars[i].pos[0] - Stars[0].pos[0])**2 + (Stars[i].pos[1] - Stars[0].pos[1])**2 + (Stars[i].pos[2] - Stars[0].pos[2])**2)
-        if r <= r_s:
+        if r <= r_s * 20:
+            Stars[0].m += Stars[i].m
             Stars[i].m = 0;
             Stars[i].pos = Stars[0].pos
             Stars[i].v = [0,0,0]
@@ -116,7 +163,7 @@ def gravity_step():
         
 
 
-
+#calculate force vector between two objects
 @ti.func
 def F_grav(m1, m2, r, u):
     return conf.G*((m1*m2)/r**2) * u
